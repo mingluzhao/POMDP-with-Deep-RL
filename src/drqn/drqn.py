@@ -5,7 +5,6 @@ import torch
 import torch.nn.functional as f
 
 
-
 class RnnNet(nn.Module):
     def __init__(self, observation_dim, action_dim, hidden_dim):
         super(RnnNet, self).__init__()

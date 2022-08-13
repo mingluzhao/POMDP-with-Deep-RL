@@ -4,8 +4,7 @@ from ddt import ddt, data, unpack
 import os
 dirName = os.path.dirname(__file__)
 sys.path.append(os.path.join(dirName, '..'))
-import aesmc.inference as target
-
+import src.dvrl.aesmc.inference as target
 
 @ddt
 # No need to further unittest cuz this calls an already tested function

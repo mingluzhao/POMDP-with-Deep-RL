@@ -4,8 +4,7 @@ from ddt import ddt, data, unpack
 import os
 dirName = os.path.dirname(__file__)
 sys.path.append(os.path.join(dirName, '..'))
-import aesmc.random_variable as target
-
+import src.dvrl.aesmc.random_variable as target
 
 
 # there is only one function in Bernoulli class to unittest: logpdf

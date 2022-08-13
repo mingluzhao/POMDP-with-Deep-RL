@@ -4,7 +4,7 @@ from ddt import ddt, data, unpack
 import os
 dirName = os.path.dirname(__file__)
 sys.path.append(os.path.join(dirName, '..'))
-import utils as target
+import src.dvrl.utils as target
 
 
 @ddt

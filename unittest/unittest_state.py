@@ -4,7 +4,7 @@ from ddt import ddt, data, unpack
 import os
 dirName = os.path.dirname(__file__)
 sys.path.append(os.path.join(dirName, '..'))
-import aesmc.state  as target
+import src.dvrl.aesmc.state as target
 
 
 @ddt
@@ -18,9 +18,6 @@ class testResample(unittest.TestCase):
     def testResample(self,value,index,expectedResample):
         outputResample = target.resample(value,index).numpy()
         self.assertEqual(outputResample.all(),expectedResample.all())
-
-
-
 
 
 @ddt

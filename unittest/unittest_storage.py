@@ -4,8 +4,7 @@ from ddt import ddt, data, unpack
 import os
 dirName = os.path.dirname(__file__)
 sys.path.append(os.path.join(dirName, '..'))
-import storage as target
-
+import src.dvrl.storage as target
 
 @ddt
 class testStorage(unittest.TestCase):

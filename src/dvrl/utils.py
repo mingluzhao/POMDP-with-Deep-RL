@@ -1,9 +1,4 @@
 import torch
-import numpy as np
-from torch.autograd import Variable
-import aesmc.math as math
-import collections
-
 
 
 def toOneHot(actionDim, actions):

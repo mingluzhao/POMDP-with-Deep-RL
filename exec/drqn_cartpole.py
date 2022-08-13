@@ -8,7 +8,7 @@ import torch.nn.functional as f
 import matplotlib.pyplot as plt
 
 class RnnNet(nn.Module):
-    def __init__(self,observation_dim,action_dim,hidden_dim):
+    def __init__(self, observation_dim, action_dim, hidden_dim):
         super(RnnNet,self).__init__()
         self.fc1 = nn.Linear(observation_dim, hidden_dim)
         self.gru = nn.GRUCell(hidden_dim, hidden_dim)
