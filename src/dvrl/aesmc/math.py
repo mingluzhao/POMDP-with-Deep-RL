@@ -38,7 +38,6 @@ def logsumexp(values, dim=0, keepdim=False):
     return result
 
 
-
 def lognormexp(values, dim=0):
     """Log of exponentiates and normalizes a Tensor/Variable/np.ndarray.
 
@@ -54,8 +53,6 @@ def lognormexp(values, dim=0):
              sum_{j = 1}^{dim_n} exp(values[i_1, ..., j, ..., i_N])
     """
 
-    
-  
     log_denominator = logsumexp(values, dim=dim, keepdim=True)
     # log_numerator = values
     return values - log_denominator.expand_as(values)

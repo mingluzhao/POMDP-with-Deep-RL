@@ -73,6 +73,7 @@ class StateRandomVariable(RandomVariable):
             num_particles=2
         )
     """
+
     def __init__(self, **kwargs):
         # Needed because we overwrote normal __setattr__ to only allow torch tensors/variables
         object.__setattr__(self, '_items', {})
@@ -80,9 +81,8 @@ class StateRandomVariable(RandomVariable):
         for name in kwargs:
             self.set_random_variable_(name, kwargs[name])
 
-
     def __setitem__(self, name, value):
-        self.__setattr__(name,value)
+        self.__setattr__(name, value)
 
     def __getitem__(self, key):
         # Access elements
@@ -91,7 +91,7 @@ class StateRandomVariable(RandomVariable):
 
         # Trick to allow state to be returned by nn.Module
         # Purposely only supports `0` to catch potential misuses
-        if key==0:
+        if key == 0:
             if not self._values:
                 raise KeyError("StateRandomVariable is empty")
             for key, value in self._values.items():
@@ -111,8 +111,8 @@ class StateRandomVariable(RandomVariable):
         if isinstance(value, RandomVariable):
             self.set_random_variable_(name, value)
         elif (
-            ('_items' in self.__dict__) and
-            (name in self__dict__['_items'])
+                ('_items' in self.__dict__) and
+                (name in self__dict__['_items'])
         ):
             raise AttributeError(
                 'cannot override assigned random variable {0} with a value '
@@ -120,8 +120,6 @@ class StateRandomVariable(RandomVariable):
             )
         else:
             object.__setattr__(self, name, value)
-
-    
 
     def named_random_variables(self):
         """Return a lazy iterator over random_variables"""
@@ -151,7 +149,7 @@ class StateRandomVariable(RandomVariable):
         if not isinstance(random_variable, RandomVariable):
             raise TypeError(
                 'random_variable {} is not a RandomVariable'.
-                format(random_variable)
+                    format(random_variable)
             )
         _items = self.__dict__['_items']
         _items[name] = random_variable
@@ -167,18 +165,16 @@ class StateRandomVariable(RandomVariable):
 
         if not set(common_keys) == set(random_variable_keys):
             logging.warning("Not all random variable key are used, only {} out of {}!".format(
-               common_keys, random_variable_keys
+                common_keys, random_variable_keys
             ))
 
         if not set(common_keys) == set(other_keys):
             logging.debug("Not all other keys are used/evaluated, only {} out of {}!".format(
-               common_keys, other_keys 
+                common_keys, other_keys
             ))
 
-       
         return common_keys
 
-    
     # add a name argument
     def logpdf(self, value, batch_size, num_particles):
         # assert(
@@ -193,7 +189,7 @@ class StateRandomVariable(RandomVariable):
         # for name, random_variable in self.named_random_variables():
         for name in common_keys:
             result += self._items[name].logpdf(
-            # result += random_variable.logpdf(
+                # result += random_variable.logpdf(
                 value=value[name],
                 batch_size=batch_size,
                 num_particles=num_particles
@@ -201,13 +197,10 @@ class StateRandomVariable(RandomVariable):
 
         return result
 
-   
-
-
-
 
 class MultivariateIndependentNormal(RandomVariable):
     """MultivariateIndependentNormal random variable"""
+
     def __init__(self, mean, variance):
         """Initialize this distribution with mean, variance.
 
@@ -217,20 +210,20 @@ class MultivariateIndependentNormal(RandomVariable):
             variance: Tensor/Variable
                 [batch_size, num_particles, dim_1, ..., dim_N]
         """
-        assert(mean.size() == variance.size())
-        assert(len(mean.size()) > 2)
+        assert (mean.size() == variance.size())
+        assert (len(mean.size()) > 2)
         self._mean = mean
         self._variance = variance
 
     def sample(self, batch_size, num_particles):
-        assert(list(self._mean.size()[:2]) == [batch_size, num_particles])
+        assert (list(self._mean.size()[:2]) == [batch_size, num_particles])
 
         uniform_normals = torch.Tensor(self._mean.size()).normal_()
         return self._mean.detach() + \
-            Variable(uniform_normals) * torch.sqrt(self._variance.detach())
+               Variable(uniform_normals) * torch.sqrt(self._variance.detach())
 
     def sample_reparameterized(self, batch_size, num_particles):
-        assert(list(self._mean.size()[:2]) == [batch_size, num_particles])
+        assert (list(self._mean.size()[:2]) == [batch_size, num_particles])
 
         standard_normal = MultivariateIndependentNormal(
             mean=Variable(torch.zeros(self._mean.size())),
@@ -238,31 +231,26 @@ class MultivariateIndependentNormal(RandomVariable):
         )
 
         return self._mean + torch.sqrt(self._variance) * \
-            standard_normal.sample(batch_size, num_particles)
-
-  
+               standard_normal.sample(batch_size, num_particles)
 
     def logpdf(self, value, batch_size, num_particles):
-        assert(value.size() == self._mean.size())
-        assert(list(self._mean.size()[:2]) == [batch_size, num_particles])
+        assert (value.size() == self._mean.size())
+        assert (list(self._mean.size()[:2]) == [batch_size, num_particles])
 
         return torch.sum(
             (
-                -0.5 * (value - self._mean)**2 / self._variance -
-                0.5 * torch.log(2 * self._variance * np.pi)
+                    -0.5 * (value - self._mean) ** 2 / self._variance -
+                    0.5 * torch.log(2 * self._variance * np.pi)
             ).view(batch_size, num_particles, -1),
             dim=2
         )
-
-    
-
-
 
 
 # This class only needs logpdf because we don't sample from it.
 # Test if we don't need this anymore
 class MultivariateIndependentPseudobernoulli(RandomVariable):
     """MultivariateIndependentPseudobernoulli random variable"""
+
     def __init__(self, probability):
         """Initialize this distribution with probability.
 
@@ -270,31 +258,19 @@ class MultivariateIndependentPseudobernoulli(RandomVariable):
             probability: Tensor/Variable
                 [batch_size, num_particles, dim_1, ..., dim_N]
         """
-        assert(len(probability.size()) > 2)
+        assert (len(probability.size()) > 2)
         self._probability = probability
 
-    
-
     def logpdf(self, value, batch_size, num_particles, epsilon=1e-10):
-
-       
-          
-        assert(value.size() == self._probability.size())
-        assert(
-            list(self._probability.size()[:2]) == [batch_size, num_particles]
+        assert (value.size() == self._probability.size())
+        assert (
+                list(self._probability.size()[:2]) == [batch_size, num_particles]
         )
-
 
         return torch.sum(
             (
-                value * torch.log(self._probability + epsilon) +
-                (1 - value) * torch.log(1 - self._probability + epsilon)
+                    value * torch.log(self._probability + epsilon) +
+                    (1 - value) * torch.log(1 - self._probability + epsilon)
             ).view(batch_size, num_particles, -1),
             dim=2
         )
-
-
-
-
-
-

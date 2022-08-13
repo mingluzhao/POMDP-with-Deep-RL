@@ -1,5 +1,4 @@
 from . import math
-import time
 import numpy as np
 import torch
 
@@ -10,8 +9,8 @@ def getNormWeights(log_weight):
         dim=1
     ))
 
+
 def getCumulativeWeights(normalized_weights):
-    
     # np.ndarray [batch_size, num_particles]
     cumulative_weights = np.cumsum(normalized_weights, axis=1)
 
@@ -25,21 +24,16 @@ def getCumulativeWeights(normalized_weights):
     return cumulative_weights
 
 
-    
-
-def getPos(batch_size,num_particles,sample_method):
-
+def getPos(batch_size, num_particles, sample_method):
     noise = sample_method(batch_size)
-    
+
     pos = (noise + np.arange(0, num_particles)) / num_particles
 
     return pos
 
 
+def sample_ancestral_index(log_weight, sampleNoiseMethod):  # ancestral_log_weight
 
-
-def sample_ancestral_index(log_weight,sampleNoiseMethod): # ancestral_log_weight
-   
     """Sample ancestral index using systematic resampling.
 
     input:
@@ -51,7 +45,7 @@ def sample_ancestral_index(log_weight,sampleNoiseMethod): # ancestral_log_weight
     """
 
     device = log_weight.device
-    assert(torch.sum(log_weight != log_weight) == 0)
+    assert (torch.sum(log_weight != log_weight) == 0)
     batch_size, num_particles = log_weight.size()
     indices = np.zeros([batch_size, num_particles])
 
@@ -59,15 +53,14 @@ def sample_ancestral_index(log_weight,sampleNoiseMethod): # ancestral_log_weight
 
     cumulative_weights = getCumulativeWeights(normalized_weights)
 
-    pos = getPos(batch_size,num_particles,sampleNoiseMethod)
+    pos = getPos(batch_size, num_particles, sampleNoiseMethod)
     # compute weight
-    
+
     # sample(weight,position)
 
     for batch in range(batch_size):
         indices[batch] = np.digitize(pos[batch], cumulative_weights[batch])
 
     temp = torch.from_numpy(indices).long().to(device)
-  
 
     return temp

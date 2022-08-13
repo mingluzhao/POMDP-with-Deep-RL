@@ -1,15 +1,12 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import aesmc.math as math
-from aesmc.inference import sample_ancestral_index
-import aesmc.state as st
-import aesmc.random_variable as rv
+import src.dvrl.aesmc.math as math
+from src.dvrl.aesmc.inference import sample_ancestral_index
+import src.dvrl.aesmc.state as st
 import namedlist
-import torch.nn.functional as F
 from torch.autograd import Variable
 import torch.optim as optim
-
 
 # Container to return all required values from model
 PolicyReturn = namedlist.namedlist('PolicyReturn', [
@@ -21,9 +18,11 @@ PolicyReturn = namedlist.namedlist('PolicyReturn', [
     ('totalEncodingLoss', None)
 ])
 
+
 def sampleUniform(batch_size):
     uniforms = np.random.uniform(size=[batch_size, 1])
     return uniforms
+
 
 class DVRL(nn.Module):
     def __init__(self,
@@ -44,7 +43,6 @@ class DVRL(nn.Module):
                  criticLinear,
                  actionDist,
                  batchSize=1):
-
         super().__init__()
 
         self.actionDim = actionDim
@@ -53,72 +51,65 @@ class DVRL(nn.Module):
         self.observationEncodeDim = observationEncodeDim
         self.hDim = hDim
         self.zDim = zDim
-        self.hiddenDim  = hiddenDim
+        self.hiddenDim = hiddenDim
         self.numParticles = numParticles
         self.batchSize = batchSize
         # Input dimension is hDim + hDim + 1, output dim 就让他是hDim反正也没啥关系
         self.particleGru = particleGru
-
-        
 
         self.encodingNetwork = encodingNetwork
         self.proposalNetwork = proposalNetwork
         self.deterministicTransitionNetwork = deterministicTransitionNetwork
         self.transitionNetwork = transitionNetwork
         self.emissionNetwork = emissionNetwork
-            
+
         # 这两个是最后的output
         # input是一样的，一个输出value,另一个输出action
         self.criticLinear = criticLinear
         self.dist = actionDist
 
         self.optimizer = optim.RMSprop(self.parameters(), 0.0002,
-                                  eps=1e-05, alpha=0.99)
-
-
+                                       eps=1e-05, alpha=0.99)
 
     # resample particle from index
-    def sampleFromDistribution(self,distribution):
-
-         return distribution.sample_reparameterized(
+    def sampleFromDistribution(self, distribution):
+        return distribution.sample_reparameterized(
             self.batchSize, self.numParticles)
-  
+
     # initialize new latent state for new episodes
     def newLatentState(self):
         initialState = st.State(
             h=torch.zeros(self.batchSize, self.numParticles, self.hDim),
-            logWeight = torch.zeros(self.batchSize, self.numParticles))
-        
+            logWeight=torch.zeros(self.batchSize, self.numParticles))
+
         return initialState
 
-   
-    def encodeObservationAction(self,observation,reward,action):
-
+    def encodeObservationAction(self, observation, reward, action):
         obsActUnencode = st.State(
-            observation = observation.contiguous().unsqueeze(0),
-            action = action.contiguous().unsqueeze(0),
-            reward = reward.contiguous().unsqueeze(0))
+            observation=observation.contiguous().unsqueeze(0),
+            action=action.contiguous().unsqueeze(0),
+            reward=reward.contiguous().unsqueeze(0))
         # encode observation and action
         obsActEncode = self.encodingNetwork(obsActUnencode)
 
         return obsActEncode
 
-    def resampleParticles(self,previousLatentState):
+    def resampleParticles(self, previousLatentState):
         previousLogWeight = previousLatentState.logWeight
         # compute u,选一部分particle代替所有的particle
-        ancestralIndices = sample_ancestral_index(previousLogWeight,sampleUniform)
+        ancestralIndices = sample_ancestral_index(previousLogWeight, sampleUniform)
         # resample based on u
         previousLatentState = previousLatentState.resample(ancestralIndices)
 
         return previousLatentState
 
-    def computeDistribution(self,previousLatentState,obsActEncode):
+    def computeDistribution(self, previousLatentState, obsActEncode):
         # 选用第一个time step的observation,action,encoded obs, encoded_Action,etc,虽然本来也只有一个timestep,还是保持和原code一致把
         currentObsActEncode = obsActEncode.index_elements(0)
-        
-        proposalDistribution= self.proposalNetwork(
+
+        proposalDistribution = self.proposalNetwork(
             previousLatentState=previousLatentState,
-            obsActEncode =currentObsActEncode
+            obsActEncode=currentObsActEncode
         )
         # sample z  [1, 15, 256]
         latentState = self.sampleFromDistribution(proposalDistribution)
@@ -132,74 +123,66 @@ class DVRL(nn.Module):
 
         # Compute prior probability over z  这个用来算w的，配合emission和proposal一起算w
         priorDistribution = self.transitionNetwork(
-            previousLatentState = previousLatentState,
-            obsActEncode = currentObsActEncode
-            )
+            previousLatentState=previousLatentState,
+            obsActEncode=currentObsActEncode
+        )
 
         # Compute probability over observation 这个是Decoder
         observationDecodeDistribution = self.emissionNetwork(
-            previousLatentState = previousLatentState,
-            latentState = latentState,
-            obsActEncode = currentObsActEncode
-            )
-       
-        return latentState, proposalDistribution, priorDistribution, observationDecodeDistribution,currentObsActEncode
-    
+            previousLatentState=previousLatentState,
+            latentState=latentState,
+            obsActEncode=currentObsActEncode
+        )
 
-    def computeWeightLoss(self,latentState,proposalDistribution, priorDistribution, observationDecodeDistribution,currentObsActEncode):
+        return latentState, proposalDistribution, priorDistribution, observationDecodeDistribution, currentObsActEncode
 
-        
-       
+    def computeWeightLoss(self, latentState, proposalDistribution, priorDistribution, observationDecodeDistribution,
+                          currentObsActEncode):
         emissionLogpdf = observationDecodeDistribution.logpdf(
             currentObsActEncode, self.batchSize, self.numParticles)
 
         proposalLogpdf = proposalDistribution.logpdf(
             latentState, self.batchSize, self.numParticles)
-        
+
         transitionLogpdf = priorDistribution.logpdf(
             latentState, self.batchSize, self.numParticles)
-        
+
         # compute the new logWeight and update the particles
         newLogWeight = transitionLogpdf - proposalLogpdf + emissionLogpdf
         latentState.logWeight = newLogWeight
 
-         # Average (in log space) over particles
-         # !!! This is ELBO loss for particle filter !!!!!!!!
+        # Average (in log space) over particles
+        # !!! This is ELBO loss for particle filter !!!!!!!!
         encodingLogli = math.logsumexp(
             newLogWeight, dim=1
         ) - np.log(self.numParticles)
 
         return latentState, -encodingLogli
 
-        
-    def encode(self,observation,reward,action, previousLatentState):
-
-        # Encode 
-        obsActEncode = self.encodeObservationAction(observation,reward,action)
-     
-        
+    def encode(self, observation, reward, action, previousLatentState):
+        # Encode
+        obsActEncode = self.encodeObservationAction(observation, reward, action)
 
         # expand ObsActEncode to # of particles
         # 后面particle计算每个particle都需要这些information, 所以要expand
-        obsActEncode.unsqueeze_and_expand_all_(dim=2,size=self.numParticles)
-       
+        obsActEncode.unsqueeze_and_expand_all_(dim=2, size=self.numParticles)
 
         # resample particles
         previousLatentState = self.resampleParticles(previousLatentState)
 
         # compute three distributions in formula for particle weights
-        latentState,proposalDistribution,\
-            priorDistribution, observationDecodeDistribution,currentObsActEncode = self.computeDistribution(previousLatentState,obsActEncode)
+        latentState, proposalDistribution, \
+        priorDistribution, observationDecodeDistribution, currentObsActEncode = self.computeDistribution(
+            previousLatentState, obsActEncode)
 
         # compute new weight and reconstruction loss
-        latentStateNewWeight,elboLoss = self.computeWeightLoss(latentState,proposalDistribution,\
-                                                             priorDistribution, observationDecodeDistribution,currentObsActEncode)
+        latentStateNewWeight, elboLoss = self.computeWeightLoss(latentState, proposalDistribution, \
+                                                                priorDistribution, observationDecodeDistribution,
+                                                                currentObsActEncode)
 
         return latentStateNewWeight, elboLoss
-            
 
-    def catEncodeParticles(self,latentState):
-
+    def catEncodeParticles(self, latentState):
         batchSize, numParticles, _ = latentState.h.size()
 
         normalizedLogWeights = math.lognormexp(
@@ -207,32 +190,29 @@ class DVRL(nn.Module):
             dim=1
         )
         particleState = torch.cat([latentState.h,
-                           latentState.encoded_Z,
-                           # add a dimension at the last dim for weight
-                           torch.exp(normalizedLogWeights).unsqueeze(-1)],
-                          dim=2)
+                                   latentState.encoded_Z,
+                                   # add a dimension at the last dim for weight
+                                   torch.exp(normalizedLogWeights).unsqueeze(-1)],
+                                  dim=2)
 
-        _ , encodedParticles = self.particleGru(particleState)
+        _, encodedParticles = self.particleGru(particleState)
 
         return encodedParticles[0]
 
-
-
-    def forward(self,currentMemory,deterministic = False):
-
+    def forward(self, currentMemory, deterministic=False):
         policyReturn = PolicyReturn()
 
         # currentMemory = current_observation, previous_action, previous_state
-        
+
         latentState, totalEncodingLoss = self.encode(
-             observation=currentMemory['currentObs'],
-             reward=currentMemory['rewards'],
-             action=currentMemory['oneHotActions'].detach(),
-             previousLatentState=currentMemory['states'],
-            )
+            observation=currentMemory['currentObs'],
+            reward=currentMemory['rewards'],
+            action=currentMemory['oneHotActions'].detach(),
+            previousLatentState=currentMemory['states'],
+        )
 
         encodedState = self.catEncodeParticles(latentState)
-       
+
         # get v
         valueEstimate = self.criticLinear(encodedState)
         # get action
@@ -247,11 +227,10 @@ class DVRL(nn.Module):
         policyReturn.actionLogProbs = actionLogProbs
         policyReturn.distEntropy = distEntropy
 
-        #Have to return this policy_return because we need to keep track of all these information, not only action
+        # Have to return this policy_return because we need to keep track of all these information, not only action
         return policyReturn
 
-
-    def learn(self, rolloutstorage, trackedValues, currentMemory,gamma=0.99,
+    def learn(self, rolloutstorage, trackedValues, currentMemory, gamma=0.99,
               valueLossCoef=0.5, actionLossCoef=1.0, entropyCoef=0.01, encodingLossCoef=0.1, retainGraph=False):
         # we need rolloutstorage to compute target
         # we need trackedValues to compute loss with respect to target
@@ -266,7 +245,7 @@ class DVRL(nn.Module):
 
         # Compute value and action losses:
         values = torch.stack(tuple(trackedValues['values']), dim=0)
-        
+
         actionLogProbs = torch.stack(tuple(trackedValues['actionLogProbs']), dim=0)
 
         advantages = rolloutstorage.returns[:-1] - values
@@ -278,9 +257,9 @@ class DVRL(nn.Module):
         distEntropy = torch.stack(tuple(trackedValues['distEntropy'])).mean()
 
         totalLoss = (valueLoss * valueLossCoef
-                      + actionLoss * actionLossCoef
-                      - distEntropy * entropyCoef
-                      + avgEncodingLoss * encodingLossCoef)
+                     + actionLoss * actionLossCoef
+                     - distEntropy * entropyCoef
+                     + avgEncodingLoss * encodingLossCoef)
 
         self.optimizer.zero_grad()
         totalLoss.backward(retain_graph=retainGraph)
@@ -290,30 +269,3 @@ class DVRL(nn.Module):
             currentMemory['states'] = currentMemory['states'].detach()
 
         return rolloutstorage, currentMemory
-        
-        
-
-
-   
-
-        
-        
-
-    
-        
-      
-
-        
-        
-
-    
-
-        
-        
-        
-        
-
-        
-        
-        
-            

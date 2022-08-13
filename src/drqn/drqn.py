@@ -26,24 +26,23 @@ class ReplayBuffer(object):
         self.episode_maxstep = episode_maxstep
         self.current_idx = 0
         self.current_size = 0
-        self.max_size = buffer_size
+        self.buffer_size = buffer_size
         self.observation_dim = observation_dim
         # No padded, No o_next
         # if o==0, padded
         # O_next
-        self.memory = {"o": np.empty([self.max_size, self.episode_maxstep, self.observation_dim]),
-                       "u": np.empty([self.max_size, self.episode_maxstep, 1]),
-                       "r": np.empty([self.max_size, self.episode_maxstep, 1]),
-                       "o_next": np.empty([self.max_size, self.episode_maxstep, self.observation_dim]),
+        self.memory = {"o": np.empty([self.buffer_size, self.episode_maxstep, self.observation_dim]),
+                       "u": np.empty([self.buffer_size, self.episode_maxstep, 1]),
+                       "r": np.empty([self.buffer_size, self.episode_maxstep, 1]),
+                       "o_next": np.empty([self.buffer_size, self.episode_maxstep, self.observation_dim]),
                        # we will pad the episode so that every episode has the same length
                        # the padded timesteps will be marked as 1
-                       "padded": np.empty([self.max_size, self.episode_maxstep, 1]),
-                       "terminate": np.empty([self.max_size, self.episode_maxstep, 1])}
+                       "padded": np.empty([self.buffer_size, self.episode_maxstep, 1]),
+                       "terminate": np.empty([self.buffer_size, self.episode_maxstep, 1])}
 
     # each time, add an entire episode to the buffer
     def addexperience(self, one_episode):
         # determine index
-
         self.memory['o'][self.current_idx] = one_episode['o']
         self.memory['u'][self.current_idx] = one_episode['u']
         self.memory['r'][self.current_idx] = one_episode['r']
@@ -52,8 +51,8 @@ class ReplayBuffer(object):
         self.memory['terminate'][self.current_idx] = one_episode['terminate']
 
         # determine index
-        self.current_size = min(self.current_size + 1, self.max_size)
-        self.current_idx = 0 if self.current_idx == self.max_size - 1 else self.current_idx + 1
+        self.current_size = min(self.current_size + 1, self.buffer_size)
+        self.current_idx = 0 if self.current_idx == self.buffer_size - 1 else self.current_idx + 1
 
     def samplefromemory(self, minibatch_size):
         temp_buffer = {}
@@ -210,4 +209,3 @@ class DRQNAgent(object):
             self.train_step += 1
             if self.train_step % self.update_freq:
                 self.target_model.load_state_dict(self.model.state_dict())
-

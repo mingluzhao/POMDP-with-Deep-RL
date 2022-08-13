@@ -1,36 +1,35 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.autograd import Variable
-import gym
-from storage import RolloutStorage
-import utils
-from dvrl import DVRL
-import collections
-from envs.wrapper_easywumpus import EasyWumpusEnv
-from networks import VRNN_encoding, VRNN_proposal, VRNN_deterministic_transition, VRNN_transition, VRNN_emission
-from policy import Categorical
 import matplotlib.pyplot as plt
-import random
+import collections
+
+from src.dvrl.storage import RolloutStorage
+from src.dvrl.dvrl import DVRL
+from src.dvrl.networks import VRNN_encoding, VRNN_proposal, VRNN_deterministic_transition, VRNN_transition, \
+    VRNN_emission
+from src.dvrl.policy import Categorical
+from src.dvrl.utils import toOneHot
+from env.wrapper_easywumpus import EasyWumpusEnv
 
 
 def setupExperiment(config):
-
     env = EasyWumpusEnv(0.7)
     actionDim = 4
-    observationDim = 1# env.observation_space.shape[0]
+    observationDim = 1  # env.observation_space.shape[0]
 
-    encodingNetwork =  VRNN_encoding(observationDim, config["hiddenDim"],
-                                     config["observationEncodeDim"], actionDim, config["actionEncodeDim"])
-    proposalNetwork =  VRNN_proposal(config["zDim"], config["hDim"], config["observationEncodeDim"],config["actionEncodeDim"])
-    deterministicTransitionNetwork = VRNN_deterministic_transition(config["zDim"], config["observationEncodeDim"], config["hDim"],
-                                     config["actionEncodeDim"])
-    transitionNetwork = VRNN_transition(config["hDim"],config["zDim"] ,config["actionEncodeDim"])
-    emissionNetwork = VRNN_emission(config["hDim"], config["actionEncodeDim"],config["hiddenDim"], observationDim,
+    encodingNetwork = VRNN_encoding(observationDim, config["hiddenDim"],
+                                    config["observationEncodeDim"], actionDim, config["actionEncodeDim"])
+    proposalNetwork = VRNN_proposal(config["zDim"], config["hDim"], config["observationEncodeDim"],
+                                    config["actionEncodeDim"])
+    deterministicTransitionNetwork = VRNN_deterministic_transition(config["zDim"], config["observationEncodeDim"],
+                                                                   config["hDim"],
+                                                                   config["actionEncodeDim"])
+    transitionNetwork = VRNN_transition(config["hDim"], config["zDim"], config["actionEncodeDim"])
+    emissionNetwork = VRNN_emission(config["hDim"], config["actionEncodeDim"], config["hiddenDim"], observationDim,
                                     config["observationEncodeDim"])
 
-    particleGru = nn.GRU(config["hDim"]*2+1, config["hDim"], batch_first = True)
+    particleGru = nn.GRU(config["hDim"] * 2 + 1, config["hDim"], batch_first=True)
 
     criticLinear = nn.Linear(config["hDim"], 1)
 
@@ -53,40 +52,36 @@ def setupExperiment(config):
                        criticLinear,
                        actionDist)
 
-    
-    
     # initialize rolloutstorage
     rolloutStorage = RolloutStorage(config["numStepBeforeTrain"])
-    
+
     # initialize current_memory
     initialState = env.getInitialState()
-    obs = np.array([env.observation(initialState,0)])
-   
+    obs = np.array([env.observation(initialState, 0)])
+
     currentObs = torch.from_numpy(obs).float().unsqueeze(0)
 
-    
     initStates = actorCritic.newLatentState()
-    initRewards = torch.zeros(1,1)
-    initActions = torch.zeros(1,1)
+    initRewards = torch.zeros(1, 1)
+    initActions = torch.zeros(1, 1)
     currentMemory = {
-            'currentObs': currentObs,
-            'states': initStates,
-            'oneHotActions': utils.toOneHot(
-                actionDim,
-                initActions),
-            'rewards': initRewards,
-            'transitionState':initialState
-        }
-    return env,actorCritic,rolloutStorage, currentMemory
+        'currentObs': currentObs,
+        'states': initStates,
+        'oneHotActions': toOneHot(
+            actionDim,
+            initActions),
+        'rewards': initRewards,
+        'transitionState': initialState
+    }
+    return env, actorCritic, rolloutStorage, currentMemory
 
 
-def updateMemory(env,actorCritic,currentMemory, policyReturn, obs, reward, done,transitionState):
+def updateMemory(env, actorCritic, currentMemory, policyReturn, obs, reward, done, transitionState):
     # Make reward into tensor so we can use it as input to model
     reward = torch.from_numpy(np.expand_dims(np.stack(np.array([reward])), 1)).float()
     # If trajectory ended, create mask to clean reset actions and latent states
     masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in [done]])
 
-    
     # Update current_memory
     currentMemory['currentObs'] = torch.from_numpy(np.array([obs])).float()
     # Create new latent states for new episodes
@@ -94,48 +89,39 @@ def updateMemory(env,actorCritic,currentMemory, policyReturn, obs, reward, done,
     currentMemory['states'] = policyReturn.latentState if not done else actorCritic.newLatentState()
     # Set first action to 0 for new episodes
     # Also, if action is discrete, convert it to one-hot vector
-    currentMemory['oneHotActions'] = utils.toOneHot(
+    currentMemory['oneHotActions'] = toOneHot(
         4,
         policyReturn.action * masks.type(policyReturn.action.type()))
     currentMemory['rewards'][:] = reward
     currentMemory['transitionState'] = transitionState
 
     return currentMemory, masks, reward
-    
-       
-def runOneTimeStep(actorCritic,currentMemory,env,cumulativeReward):
 
+
+def runOneTimeStep(actorCritic, currentMemory, env, cumulativeReward):
     # use policy to get action and other stuff
     policyReturn = actorCritic(currentMemory)
     actions = policyReturn.action.detach().squeeze(1).numpy()[0]
-    
-    
-        
-    
-    nextState = env.transition(currentMemory['transitionState'],actions)
-    nextObservation = [env.observation(nextState,actions)]
-    reward = env.reward(currentMemory['transitionState'],actions,nextState)
+
+    nextState = env.transition(currentMemory['transitionState'], actions)
+    nextObservation = [env.observation(nextState, actions)]
+    reward = env.reward(currentMemory['transitionState'], actions, nextState)
     done = env.isterminal("nextState")
-  
-    cumulativeReward+=reward
-    
+
+    cumulativeReward += reward
 
     if done:
         nextState = env.getInitialState()
-        nextObservation = [env.observation(nextState,0)]
+        nextObservation = [env.observation(nextState, 0)]
         print("episode reward: {}".format(cumulativeReward))
-        
-        
 
-    
-    currentMemory, masks, reward = updateMemory(env,actorCritic,currentMemory, policyReturn, nextObservation, reward,done,nextState)
-    
+    currentMemory, masks, reward = updateMemory(env, actorCritic, currentMemory, policyReturn, nextObservation, reward,
+                                                done, nextState)
 
-    return policyReturn,currentMemory,masks,reward, cumulativeReward,done
+    return policyReturn, currentMemory, masks, reward, cumulativeReward, done
 
 
 def trackValues(trackedValues, policyReturn):
-
     # track value to calculate loss with respect to targets
 
     trackedValues['values'].append(policyReturn.valueEstimate)
@@ -146,18 +132,17 @@ def trackValues(trackedValues, policyReturn):
 
     return trackedValues
 
-      
 
 def main():
-    config = {"envName":'CartPole-v1',
-              "actionEncodeDim" :64,
-              "observationEncodeDim":128,
-              "hiddenDim":64,
-              "hDim":256,
-              "zDim" :256,
-              "numParticles":15,
-              "numStepBeforeTrain":5,
-              "totalTrainStep" : 30000
+    config = {"envName": 'CartPole-v1',
+              "actionEncodeDim": 64,
+              "observationEncodeDim": 128,
+              "hiddenDim": 64,
+              "hDim": 256,
+              "zDim": 256,
+              "numParticles": 15,
+              "numStepBeforeTrain": 5,
+              "totalTrainStep": 30000
               }
 
     env, actorCritic, rollouts, currentMemory = setupExperiment(config)
@@ -166,14 +151,14 @@ def main():
     scores = collections.deque(maxlen=50)
     # start running
     for j in range(config["totalTrainStep"]):
-        
+
         trackedValues = collections.defaultdict(lambda: [])
 
         for step in range(config["numStepBeforeTrain"]):
-            
-            
-            policyReturn,currentMemory,masks,reward,cumulativeReward,done= runOneTimeStep(actorCritic,\
-                                                                                                       currentMemory,env,cumulativeReward)
+
+            policyReturn, currentMemory, masks, reward, cumulativeReward, done = runOneTimeStep(actorCritic, \
+                                                                                                currentMemory, env,
+                                                                                                cumulativeReward)
             # save reward for plotting
             if done:
                 scores.append(cumulativeReward)
@@ -185,24 +170,18 @@ def main():
             # Track all bunch of stuff and also save intermediate images and stuff
             trackedValues = trackValues(trackedValues, policyReturn)
 
-        actorCritic.learn(rollouts,trackedValues,currentMemory)
+        actorCritic.learn(rollouts, trackedValues, currentMemory)
 
     plt.plot(movingAverageReward)
-   
+
     plt.show()
 
 
+if __name__ == '__main__':
+    main()
 
-main()
-    
-
-    
-
-    
 """
 ./code/main.py -p with environment.config_file=openaiEnv.yaml environment.name=PongNoFrameskip-v0 algorithm.use_particle_filter=True
 algorithm.model.h_dim=256 algorithm.multiplier_backprop_length=10 algorithm.particle_filter.num_particles=15
 opt.lr=2.0e-04 loss_function.encoding_loss_coef=0.1 rl_setting.num_processes=1 algorithm.model.policy_batch_norm=False
 """
-
-

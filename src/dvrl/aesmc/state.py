@@ -1,7 +1,6 @@
 from torch.autograd import Variable
-import collections
 import torch
-import numpy as np
+
 
 def resample(value, ancestral_index):
     """Resample the value without side effects.
@@ -14,19 +13,19 @@ def resample(value, ancestral_index):
         (or [batch_size, num_particles])
     """
 
-    assert(ancestral_index.size() == value.size()[:2])
+    assert (ancestral_index.size() == value.size()[:2])
     ancestral_index_unsqueezed = ancestral_index
 
     for _ in range(len(value.size()) - 2):
         ancestral_index_unsqueezed = \
             ancestral_index_unsqueezed.unsqueeze(-1)
-   
 
     return torch.gather(
         value,
         dim=1,
         index=ancestral_index_unsqueezed.expand_as(value)
     )
+
 
 class State():
     """Collection of Tensor/Variable objects.
@@ -41,6 +40,7 @@ class State():
         if y in state:
             pass
     """
+
     def __init__(self, **kwargs):
         # Needed because we overwrote normal __setattr__ to only allow torch tensors/variables
         object.__setattr__(self, '_items', {})
@@ -64,7 +64,7 @@ class State():
 
         # Trick to allow state to be returned by nn.Module
         # Purposely only supports `0` to catch potential misuses
-        if key==0:
+        if key == 0:
             if not self._items:
                 raise KeyError("State is empty")
             for key, value in self._items.items():
@@ -82,15 +82,12 @@ class State():
         if not (isinstance(value, Variable) or torch.is_tensor(value)):
             raise TypeError('value {} is not a Tensor/Variable'.format(value))
 
-        assert(len(value.size()) >= 2)
-       
+        assert (len(value.size()) >= 2)
 
         for old_name, old_value in self._items.items():
-            
             # [Batch, particles]
-          
-      
-            assert(value.size()[:2] == old_value.size()[:2])
+
+            assert (value.size()[:2] == old_value.size()[:2])
             break
         self._items[name] = value
         return self
@@ -105,12 +102,13 @@ class State():
                 setattr(new_state, name, value[key])
             else:
                 # Need to use index() instead of [] to keep dimension
-                
+
                 setattr(new_state, name, value.index(key))
         return new_state
 
     def unsqueeze_and_expand_all_(self, dim, size):
         "Unsqueezes all elements at the given dim and expands that dim to the given size"
+
         def fn(tensor):
             dims = list(tensor.size())
             dims.insert(dim, size)
@@ -126,7 +124,7 @@ class State():
             xfactor = mask
             dims_factor = len(mask.size())
             dims_value = len(value.size())
-            assert(dims_factor <= dims_value)
+            assert (dims_factor <= dims_value)
             for i in range(dims_value - dims_factor):
                 xfactor = xfactor.unsqueeze(-1)
             assert (len(xfactor.size()) == len(value.size()))
@@ -151,9 +149,8 @@ class State():
         """Returns a copy of this state."""
         state = State()
         for key, value in self._items.items():
-            setattr(state,key,value.clone())
+            setattr(state, key, value.clone())
         return state
-
 
     def detach_(self):
         return self.apply_each_(lambda x: x.detach())
@@ -183,7 +180,6 @@ class State():
         output: updated state
         """
         return self.apply_each_(lambda value: resample(value, ancestral_index))
-
 
     def update(self, second_state):
         if second_state is not None:

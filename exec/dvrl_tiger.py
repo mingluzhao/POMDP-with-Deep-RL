@@ -1,17 +1,15 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.autograd import Variable
-import gym
-from storage import RolloutStorage
-import utils
-from dvrl import DVRL
 import collections
-from envs.wrapper_tiger import TigerEnv
-from networks import VRNN_encoding, VRNN_proposal, VRNN_deterministic_transition, VRNN_transition, VRNN_emission
-from policy import Categorical
 import matplotlib.pyplot as plt
+
+from src.dvrl.storage import RolloutStorage
+from src.dvrl.dvrl import DVRL
+from src.dvrl.networks import VRNN_encoding, VRNN_proposal, VRNN_deterministic_transition, VRNN_transition, VRNN_emission
+from src.dvrl.policy import Categorical
+from env.wrapper_tiger import TigerEnv
+from src.dvrl.utils import toOneHot
 
 
 def setupExperiment(config):
@@ -70,7 +68,7 @@ def setupExperiment(config):
     currentMemory = {
             'currentObs': currentObs,
             'states': initStates,
-            'oneHotActions': utils.toOneHot(
+            'oneHotActions': toOneHot(
                 actionDim,
                 initActions),
             'rewards': initRewards,
@@ -93,7 +91,7 @@ def updateMemory(env,actorCritic,currentMemory, policyReturn, obs, reward, done,
     currentMemory['states'] = policyReturn.latentState if not done else actorCritic.newLatentState()
     # Set first action to 0 for new episodes
     # Also, if action is discrete, convert it to one-hot vector
-    currentMemory['oneHotActions'] = utils.toOneHot(
+    currentMemory['oneHotActions'] = toOneHot(
         3,
         policyReturn.action * masks.type(policyReturn.action.type()))
     currentMemory['rewards'][:] = reward
@@ -190,7 +188,9 @@ def main():
 
 
 
-main()
+if __name__ == '__main__':
+    main()
+
     
 
     

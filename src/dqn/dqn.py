@@ -5,6 +5,7 @@ import torch.optim as optim
 import torch
 from collections import deque
 
+
 class BuildModel(nn.Module):
     def __init__(self, lr, layers, input_dimension):
         super(BuildModel, self).__init__()
