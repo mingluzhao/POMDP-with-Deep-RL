@@ -20,7 +20,7 @@ class testLogSumExp(unittest.TestCase):
         self.assertAlmostEqual(outputTensor[2],expectedTensor.numpy()[2],3)
     @data((target.torch.tensor([[0.0,0.0,0.0]]),target.torch.tensor([0.0,0.0,0.0])))
     @unpack
-    # test when the first dimension = 1, should return itself with reduced dimension
+    # unittest when the first dimension = 1, should return itself with reduced dimension
     def test_one_dimension(self,inputTensor,expectedTensor):
         outputTensor = target.logsumexp(inputTensor,dim=0).numpy()
         self.assertAlmostEqual(outputTensor[0],expectedTensor.numpy()[0],3)
@@ -29,7 +29,7 @@ class testLogSumExp(unittest.TestCase):
 
     @data((target.torch.tensor([[-1.0],[-2.0]]),target.torch.tensor([-0.6867])))
     @unpack
-    # test when the input is negative
+    # unittest when the input is negative
     def test_negative(self,inputTensor,expectedTensor):
         outputTensor = target.logsumexp(inputTensor,dim=0).numpy()
         self.assertAlmostEqual(outputTensor[0],expectedTensor.numpy()[0],3)
@@ -49,7 +49,7 @@ class testLogNormExp(unittest.TestCase):
 
     @data((target.torch.tensor([[1.0,2.0,3.0]]),target.torch.tensor([[0.0,0.0,0.0]])))
     @unpack
-    # test when the first dimension = 1, should return a tensor filled with 0.0
+    # unittest when the first dimension = 1, should return a tensor filled with 0.0
     def test_one_dimension(self,inputTensor,expectedTensor):
         outputTensor = target.lognormexp(inputTensor,dim=0).numpy()
         self.assertAlmostEqual(outputTensor[0][0],expectedTensor.numpy()[0][0],3)
@@ -57,7 +57,7 @@ class testLogNormExp(unittest.TestCase):
 
     @data((target.torch.tensor([[-1.0],[-2.0]]),target.torch.tensor([[-0.3133],[-1.3133]])))
     @unpack
-    # test when the input is negative
+    # unittest when the input is negative
     def test_negative(self,inputTensor,expectedTensor):
         outputTensor = target.lognormexp(inputTensor,dim=0).numpy()
         self.assertAlmostEqual(outputTensor[0][0],expectedTensor.numpy()[0][0],3)

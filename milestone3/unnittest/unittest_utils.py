@@ -9,7 +9,7 @@ import utils as target
 
 @ddt
 class testToOneHot(unittest.TestCase):
-    # test single action and multiple actions
+    # unittest single action and multiple actions
     @data((3,target.torch.tensor([[2],[2]]),target.torch.tensor([[0.0,0.0,1.0],[0.0,0.0,1.0]])),
           (3,target.torch.tensor([1]),target.torch.tensor([[0.0,1.0,0.0]])))
     @unpack

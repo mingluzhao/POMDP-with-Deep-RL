@@ -8,7 +8,7 @@ import aesmc.inference as target
 
 
 @ddt
-# No need to further test cuz this calls an already tested function
+# No need to further unittest cuz this calls an already tested function
 class testGetNormWeights(unittest.TestCase):
     @data((target.torch.tensor([[1.0,2.0,3.0],[2.0,3.0,5.0]]),target.torch.tensor([[0.0900, 0.2447, 0.6652],[0.0420, 0.1142, 0.8438]])))
     @unpack

@@ -1,24 +1,23 @@
 import sys
 import unittest
 from ddt import ddt, data, unpack
-import cartpole_dqn_torch_final as target
+import src.dqn.dqn as target
 
-       
 '''
-The code below test policy_egreedy
+The code below unittest policy_egreedy
 '''
 @ddt
 class testpolicyEgreedy(unittest.TestCase):
-    @data((target.T.as_tensor([[2,1]],dtype=target.T.float32),0),(target.T.as_tensor([[1,2]],dtype=target.T.float32),1))
+    @data((target.torch.as_tensor([[2,1]],dtype=target.torch.float32),0),(target.torch.as_tensor([[1,2]],dtype=target.torch.float32),1))
     @unpack
     def test(self,Q,expectedAction):
-        # test only when e=0, meaning no exploration
+        # unittest only when e=0, meaning no exploration
         calculatedAction = target.policyEgreedy(Q,0)
         # should always choose to perform action 0 based on the fake_getQ
         self.assertEqual(calculatedAction, expectedAction)
       
 '''
-The code below test SamplefromMemory. Random.sample() uniformly samples from the given list
+The code below unittest SamplefromMemory. Random.sample() uniformly samples from the given list
 '''
 
 @ddt
@@ -51,11 +50,11 @@ class testLearnfromOneSample(unittest.TestCase):
     def setUp(self):
         class fakemodel(object):
             def __call__(self,input1):
-                return target.T.as_tensor([[1,2]],dtype=target.T.float32)
+                return target.torch.as_tensor([[1,2]],dtype=target.torch.float32)
         
         self.test_model  = fakemodel()
-        self.test_episode_normal = [target.T.as_tensor([[ 0.04816886,  0.02680717,  0.02389789, -0.03381444]]), 
-                         1, 1.0, target.T.as_tensor([[-0.03134213,  0.19668025, -0.0006552 , -0.30045238]]), False]
+        self.test_episode_normal = [target.torch.as_tensor([[ 0.04816886,  0.02680717,  0.02389789, -0.03381444]]),
+                         1, 1.0, target.torch.as_tensor([[-0.03134213,  0.19668025, -0.0006552 , -0.30045238]]), False]
 
     
     @data((0.9,[1,2],[1,2.8]))
@@ -71,7 +70,7 @@ class testLearnfromOneSample(unittest.TestCase):
     
            
 '''
-The code below test LearnFromMemory
+The code below unittest LearnFromMemory
 '''
 @ddt
 class testLearnFromMemory(unittest.TestCase):
@@ -95,9 +94,6 @@ class testLearnFromMemory(unittest.TestCase):
 
 
 
-# Run the test
+# Run the unittest
 if __name__ == '__main__':
     unittest.main(argv=['first-arg-is-ignored'], exit=False)
-        
-       
-        

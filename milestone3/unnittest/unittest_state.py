@@ -42,13 +42,13 @@ class testState(unittest.TestCase):
     def testUnqueezeExpand(self):
 
         self.stForExpand.unsqueeze_and_expand_all_(dim=2,size=4)
-        # test if it is corrected expanded to size 4
+        # unittest if it is corrected expanded to size 4
         self.assertEqual(self.stForExpand.x.size()[2],4)
         self.assertEqual(self.stForExpand.y.size()[2],4)
-        # test if it is unsqueezed from 3 to 4 dimension
+        # unittest if it is unsqueezed from 3 to 4 dimension
         self.assertEqual(len(self.stForExpand.x.size()),4)
         self.assertEqual(len(self.stForExpand.y.size()),4)
-        # test if all expanded values are the same
+        # unittest if all expanded values are the same
         for i in range(len(self.stForExpand.x.size())-1):
             self.assertEqual(self.stForExpand.x[0][0][i].numpy().all(),self.stForExpand.x[0][0][i+1].numpy().all())
 
@@ -67,7 +67,7 @@ class testState(unittest.TestCase):
 
 
     def testUpdate(self):
-        # test if newSt is correctly updated and appended to self.stForExpand
+        # unittest if newSt is correctly updated and appended to self.stForExpand
         newSt = target.State(z=target.torch.tensor([[[4.0,5.0]]]))
         self.stForExpand.update(newSt)
         self.assertEqual(self.stForExpand.z.numpy()[0][0][0],4.0)

@@ -8,7 +8,7 @@ import aesmc.random_variable as target
 
 
 
-# there is only one function in Bernoulli class to test: logpdf
+# there is only one function in Bernoulli class to unittest: logpdf
 @ddt
 class testBernoulli(unittest.TestCase):
     
@@ -45,7 +45,7 @@ class testNormal(unittest.TestCase):
         sampledValue = self.normal.sample_reparameterized(1,1)
         self.assertEqual(sampledValue[0][0][0],1.0)
         
-    # test multivariate normal sample
+    # unittest multivariate normal sample
     def testMultiSample(self):
         sampledValue = self.multiNormal.sample(1,1)
         self.assertEqual(sampledValue[0][0][0],1.0)
@@ -122,7 +122,7 @@ class testStateRandomVariable(unittest.TestCase):
 
 
         
-    # this will test LogPdf
+    # this will unittest LogPdf
     # Single RV case is enough
     @data((target.st.State(z=target.torch.tensor([[[2.0]]]),h=target.torch.tensor([[[2.5]]])),target.torch.tensor([[-1.5724]]).numpy()))
     @unpack

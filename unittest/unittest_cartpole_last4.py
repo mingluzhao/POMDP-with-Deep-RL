@@ -1,10 +1,10 @@
 import sys
 import unittest
 from ddt import ddt, data, unpack
-import cartpole_dqn_torch_final as target
+import src.dqn.dqn as target
 
 '''
-the code below test SimulateOneStep
+the code below unittest SimulateOneStep
 '''
 @ddt
 class testSimulateOneStep(unittest.TestCase):
@@ -35,7 +35,7 @@ class testSimulateOneStep(unittest.TestCase):
 
 
 '''
-the code below test TrainOneStep
+the code below unittest TrainOneStep
 '''
 @ddt
 class testTrainOneStep(unittest.TestCase):
@@ -43,7 +43,7 @@ class testTrainOneStep(unittest.TestCase):
     def setUp(self):
         class fakemodel1(object):
             def __call__(self, input1):
-                return target.T.as_tensor([[1, 2]], dtype=target.T.float32)
+                return target.torch.as_tensor([[1, 2]], dtype=target.torch.float32)
         def fakePolicyEgreedy(Q,e):
             return 1
         class FakeSimulateOneStep(object):
@@ -86,7 +86,7 @@ class testTrainOneStep(unittest.TestCase):
 
 
 '''
-The code below test GetEpsilon
+The code below unittest GetEpsilon
 '''
 @ddt
 class testGetEpsilon(unittest.TestCase):
@@ -99,7 +99,7 @@ class testGetEpsilon(unittest.TestCase):
 
 
 '''
-The code below test Train
+The code below unittest Train
 '''
 @ddt
 class testTrain(unittest.TestCase):
@@ -143,6 +143,6 @@ class testTrain(unittest.TestCase):
         self.assertEqual(sim_model.s_dict, 0)
 
 
-# Run the test
+# Run the unittest
 if __name__ == '__main__':
     unittest.main(argv=['first-arg-is-ignored'], exit=False)

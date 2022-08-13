@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 class Wrapper(object):
-    def __init__(self,env_name):
+    def __init__(self, env_name):
         self.env = env = gym.make(env_name)
         self.step=0
         self.current_step_reward=0
@@ -85,7 +85,7 @@ class LearnFromOneSample(object):
     def __call__(self, model, target_model,sample):
         state, action, reward, next_state,terminal =sample
         pred = model(state)
-        # test yixa
+        # unittest yixa
         target=reward+self.gamma*target_model(next_state)[0].max() if not terminal else reward
         target_f=pred.clone()
         target_f[0][action]=target

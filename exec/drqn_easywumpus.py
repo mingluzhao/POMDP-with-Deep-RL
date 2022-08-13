@@ -1,17 +1,13 @@
-import numpy as np
-import pandas as pd
-import random
-from wrapper_easywumpus import EasyWumpusEnv
 import matplotlib.pyplot as plt
 
 import random
-import gym
 import numpy as np
 from collections import deque
 import torch.nn as nn
-import torch.optim as optim
 import torch
 import torch.nn.functional as f
+
+from env.wrapper_easywumpus import EasyWumpusEnv
 
 class RnnNet(nn.Module):
     def __init__(self,observation_dim,action_dim,hidden_dim):
@@ -348,8 +344,10 @@ def main():
    
     plt.show()
         
-        
-main()
+
+if __name__ == '__main__':
+    main()
+
         
         
             

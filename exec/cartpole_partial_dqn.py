@@ -7,8 +7,39 @@ import torch.optim as optim
 import torch as T
 import matplotlib.pyplot as plt
 
-from wrapper_tiger import TigerEnv
 
+class Wrapper(object):
+    def __init__(self,env_name):
+        self.env = env = gym.make(env_name)
+        self.step=0
+        self.current_step_reward=0
+        self.current_step_termination = False
+
+    # call this function to initialize the environment
+    def get_initial_state(self):
+        state_0 = self.env.reset()[::2]
+        return state_0
+
+
+    def transition(self,state,action):
+        next_state, reward, done, _=self.env.step(action)
+        self.step+=1
+        self.current_step_reward = reward
+        self.current_step_termination = done
+        return next_state[::2]
+
+    def reward(self,state,action,next_state):
+        if self.current_step_termination:
+            if self.step!= 499:
+                additional_reward =-5
+            elif self.step==499:
+                additional_reward =5
+        else:
+            additional_reward = 0
+        return self.current_step_reward + additional_reward
+
+    def check_if_terminal(self,state):
+        return self.current_step_termination
 
 
 class BuildModel(nn.Module):
@@ -54,7 +85,7 @@ class LearnFromOneSample(object):
     def __call__(self, model, target_model,sample):
         state, action, reward, next_state,terminal =sample
         pred = model(state)
-        # test yixa
+        # unittest yixa
         target=reward+self.gamma*target_model(next_state)[0].max() if not terminal else reward
         target_f=pred.clone()
         target_f[0][action]=target
@@ -95,20 +126,16 @@ class LearnFromMemory(object):
     
 # tested
 class SimulateOneStep(object):
-    def __init__(self,transition,reward,observation, isterminal):
+    def __init__(self,transition,reward,check_if_terminal):
         self.transition = transition
         self.reward = reward
-        self.observation = observation
-        self.isterminal = isterminal
+        self.check_if_terminal = check_if_terminal
 
     def __call__(self,state,action):
-
-        next_observation = self.observation(state,action)
         next_state = self.transition(state,action) 
         reward = self.reward(state,action,next_state)
-        terminal = self.isterminal(next_state)
-        
-        return reward,next_state,next_observation,terminal
+        terminal = self.check_if_terminal(next_state)
+        return reward,next_state,terminal
 
 
 # tested
@@ -121,15 +148,14 @@ class TrainOneStep(object):
         self.minibatchSize = minibatchSize
       
         
-    def __call__(self, model,target_model, memory, state,observation,e):
-        
-        Q=model(observation)
+    def __call__(self, model,target_model, memory, state,e): 
+        Q=model(state)
         action = self.policyEgreedy(Q,e)
-        reward, next_state,next_observation,terminal =self.simulateOneStep(state,action)
-        memory.append([observation, action,reward,next_observation,terminal])
+        reward, next_state,terminal =self.simulateOneStep(state,action)
+        memory.append([state, action,reward,next_state,terminal])
         minibatch=self.sampleFromMemory(self.minibatchSize,memory)
         model,target_model=self.learnFromMemory(model, target_model,minibatch)
-        return model,target_model, memory,next_state, next_observation,terminal,reward
+        return model,target_model, memory,next_state, terminal
 
 
 # tested
@@ -154,33 +180,29 @@ class Train(object):
         self.update_freq = update_freq
 
     def __call__(self, model, target_model,memory, simulator):
-        training_score = deque(maxlen = 100)
-        moving_average = []
+        moving_average =[]
+        scores = deque(maxlen=100)
         for episode in range(self.maxEpisodes):
-            state = simulator.getInitialState()
-            # observe nothing at first
-            observation = [3]
+            state = simulator.get_initial_state()
             e = self.getEpsilon()
-            total_reward = 0
             for step in range(self.maxSteps):
-                model, target_model,memory,state,observation,terminal,reward =self.trainOneStep(model, target_model,memory,state,observation,e)
-                total_reward += reward
+                model, target_model,memory,state,terminal =self.trainOneStep(model, target_model,memory,state,e)
                 if step%self.update_freq==0:
                     target_model.load_state_dict(model.state_dict())
                 if terminal:
                     print("epsiode {}/{}".format(episode,self.maxEpisodes))
                     print("current e {:.2}".format(e))
-                    print("score is {}".format(total_reward))
-                    training_score.append(total_reward)
-                    moving_average.append(np.mean(training_score))
+                    print("score is {}".format(step))
+                    scores.append(step)
+                    moving_average.append(np.mean(scores))
                     break
-        return model,moving_average
+        return model, moving_average
         
         
 def main():
-    observation_dimension = 1  
-    action_dimension = 3
-    simulator = TigerEnv()
+    observation_dimension = 2
+    action_dimension = 2
+    simulator = Wrapper('CartPole-v1')
     layers=[nn.Linear(observation_dimension, 24), nn.ReLU(),
             nn.Linear(24, 24), nn.ReLU(),
             nn.Linear(24, action_dimension)]
@@ -189,34 +211,35 @@ def main():
     target_model = BuildModel(lr=0.001, layers=layers,input_dimension = observation_dimension)
     target_model.load_state_dict(model.state_dict())
 
-    memory=deque(maxlen=10000)
-    minibatchSize=32
+    memory=deque(maxlen=1000)
+    minibatchSize=64
     gamma=0.95
     train_freq = 0.25
     learnFromOneSample=LearnFromOneSample(gamma)
     learnFromMemory=LearnFromMemory(learnFromOneSample,train_freq,learnbackprop)
-    simulateOneStep = SimulateOneStep(simulator.transition,simulator.reward,simulator.observation,simulator.isterminal)
+    simulateOneStep = SimulateOneStep(simulator.transition,simulator.reward,simulator.check_if_terminal)
     trainOneStep=TrainOneStep(policyEgreedy,simulateOneStep,sampleFromMemory,learnFromMemory,minibatchSize)
     
     
     e=1.0
-    decay_rate = 0.999
+    decay_rate = 0.99
     e_min=0.01
     getEpsilon = GetEpsilon(e,e_min,decay_rate)
 
     
-    maxSteps=20
-    maxEpisodes=10000
-    target_model_update_freq = 100
+    maxSteps=500
+    maxEpisodes=6000
+    target_model_update_freq = 10
     train=Train(trainOneStep, maxSteps,maxEpisodes,getEpsilon,target_model_update_freq)
-    model,scores=train(model, target_model,memory, simulator)
+    model, moving_average=train(model, target_model,memory, simulator)
 
-    
-
-    plt.plot(scores)
+    plt.plot(moving_average)
+    plt.title('DQN Solve Partial Cartpole')
+    plt.ylabel('Score')
+    plt.xlabel('Episodes')
     plt.show()
-
     
+
 
 if __name__ == '__main__':
     main()
