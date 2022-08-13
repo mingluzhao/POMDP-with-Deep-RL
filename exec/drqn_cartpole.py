@@ -3,7 +3,6 @@ import gym
 import numpy as np
 from collections import deque
 import torch.nn as nn
-import torch.optim as optim
 import torch
 import torch.nn.functional as f
 import matplotlib.pyplot as plt

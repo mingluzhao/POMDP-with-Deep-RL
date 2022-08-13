@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import random
 
 
@@ -33,7 +32,7 @@ class WumpusEnv(object):
 
         transitionMatrix=np.array([[[transitionFunc(s, a, sPrime) for sPrime in self.stateSpace] for a in self.actionSpace] for s in self.stateSpace])
 
-        movingCost=-5
+        movingCost=-5 # TODO: used movingCost=-2 in milestone3
         victoryReward=100
         losingPenalty=-100
         def shootingReward(s, a, sPrime):

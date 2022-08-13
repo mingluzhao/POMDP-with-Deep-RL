@@ -109,21 +109,3 @@ class TigerEnv(object):
    
     
 
-    
-    
-    
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
