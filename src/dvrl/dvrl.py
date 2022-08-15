@@ -68,8 +68,7 @@ class DVRL(nn.Module):
         self.criticLinear = criticLinear
         self.dist = actionDist
 
-        self.optimizer = optim.RMSprop(self.parameters(), 0.0002,
-                                       eps=1e-05, alpha=0.99)
+        self.optimizer = optim.RMSprop(self.parameters(), 0.0002, eps=1e-05, alpha=0.99)
 
     # resample particle from index
     def sampleFromDistribution(self, distribution):

@@ -5,10 +5,10 @@ import torch.nn.functional as F
 
 
 class Encoder(nn.Module):
-    def __init__(self, Observation_dim, H, D_out):
+    def __init__(self, obs_dim, H, out_dim):
         super(Encoder, self).__init__()
-        self.linear1 = nn.Linear(Observation_dim, H)
-        self.linear2 = nn.Linear(H, D_out)
+        self.linear1 = nn.Linear(obs_dim, H)
+        self.linear2 = nn.Linear(H, out_dim)
 
     def forward(self, x):
         x = F.relu(self.linear1(x))
@@ -16,10 +16,10 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, D_in, H, Observation_dim):
+    def __init__(self, input_dim, H, obs_dim):
         super(Decoder, self).__init__()
-        self.linear1 = nn.Linear(D_in, H)
-        self.linear2 = nn.Linear(H, Observation_dim)
+        self.linear1 = nn.Linear(input_dim, H)
+        self.linear2 = nn.Linear(H, obs_dim)
 
     def forward(self, x):
         # I removed the relu layer at the final output layer

@@ -1,7 +1,7 @@
 from collections import deque
 import numpy as np
 import matplotlib.pyplot as plt
-from src.drqn.drqn import RnnNet, ReplayBuffer, DRQNAgent
+from src.drqn.drqn import RnnNet, ReplayBufferRnn, DRQNAgent
 
 
 class Rollout(object):
@@ -20,7 +20,7 @@ class Rollout(object):
         self.agent.init_hidden_state(1)
 
         while not terminal and step < self.agent.memory.episode_maxstep:
-            action = self.agent.choose_action(observation)
+            action = self.agent.act(observation)
             next_observation, reward, terminal, _ = self.env.step(action)
             next_observation = next_observation[::2]
             o.append(observation)
@@ -66,7 +66,7 @@ def main():
 
     buffer_size = 10000
     episode_maxstep = 500
-    replay_buffer = ReplayBuffer(buffer_size, episode_maxstep, observation_dim)
+    replay_buffer = ReplayBufferRnn(buffer_size, episode_maxstep, observation_dim)
 
     gamma = 0.9
     minibatch_size = 2
@@ -91,7 +91,7 @@ def main():
         episode, step = rollout.generate_episode()
         scores.append(step)
         moving_average.append(np.mean(scores))
-        drqn_agent.memory.addexperience(episode)
+        drqn_agent.memory.add(episode)
         drqn_agent.learn()
         current_episode += 1
 

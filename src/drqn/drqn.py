@@ -21,7 +21,7 @@ class RnnNet(nn.Module):
         return q, h
 
 
-class ReplayBuffer(object):
+class ReplayBufferRnn(object):
     def __init__(self, buffer_size, episode_maxstep, observation_dim):
         self.episode_maxstep = episode_maxstep
         self.current_idx = 0
@@ -41,7 +41,7 @@ class ReplayBuffer(object):
                        "terminate": np.empty([self.buffer_size, self.episode_maxstep, 1])}
 
     # each time, add an entire episode to the buffer
-    def addexperience(self, one_episode):
+    def add(self, one_episode):
         # determine index
         self.memory['o'][self.current_idx] = one_episode['o']
         self.memory['u'][self.current_idx] = one_episode['u']
@@ -54,16 +54,16 @@ class ReplayBuffer(object):
         self.current_size = min(self.current_size + 1, self.buffer_size)
         self.current_idx = 0 if self.current_idx == self.buffer_size - 1 else self.current_idx + 1
 
-    def samplefromemory(self, minibatch_size):
+    def sample(self, minibatch_size):
         temp_buffer = {}
-        if self.current_size >= minibatch_size:
-            idx = random.sample(range(self.current_size), minibatch_size)
-            for key in self.memory.keys():
-                temp_buffer[key] = self.memory[key][idx]
-
-            return temp_buffer
-        else:
+        if self.current_size < minibatch_size:
             return None
+
+        idx = random.sample(range(self.current_size), minibatch_size)
+        for key in self.memory.keys():
+            temp_buffer[key] = self.memory[key][idx]
+
+        return temp_buffer
 
 
 # e_Decay()
@@ -72,33 +72,24 @@ class ReplayBuffer(object):
 
 
 class DRQNAgent(object):
-    def __init__(self, model, target_model, memory, gamma, minibatch_size, e, e_min, e_decay, update_freq):
-
+    def __init__(self, model, target_model, memory, gamma, minibatch_size, e, e_min, e_decay, update_freq, lr = 1e-3):
         self.model = model
         self.target_model = target_model
 
-        # Initialize Hidden States
         # Hidden state changes as we play
         self.hidden_state = None
         # Target_hidden doesn't change as we play, only changes when training
         self.target_hidden_state = None
 
-        # Initialize the training parameters
         self.gamma = gamma
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
-
-        # Initiialize the Memory
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.memory = memory
 
-        # Initialize egreedy parameters
-
-        # put it together
         self.e = e
         self.e_min = e_min
         self.e_decay = e_decay
         self.minibatch_size = minibatch_size
 
-        # Initialize train information
         self.train_step = 0
         self.update_freq = update_freq
 
@@ -108,8 +99,7 @@ class DRQNAgent(object):
         self.hidden_state = torch.zeros((minibatch_size, 1, self.model.hidden_dim))
         self.target_hidden_state = torch.zeros((minibatch_size, 1, self.target_model.hidden_dim))
 
-    def choose_action(self, obs):
-
+    def act(self, obs):
         obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
         q_value, self.hidden_state = self.model(obs, self.hidden_state)
         if np.random.rand() <= self.e:
@@ -157,15 +147,13 @@ class DRQNAgent(object):
         return max_episode_len
 
     def learn(self):
-        minibatch = self.memory.samplefromemory(self.minibatch_size)
+        minibatch = self.memory.sample(self.minibatch_size)
 
         if minibatch is not None:
-
             # cut function
             batch_max_step = self._get_batch_max_step(minibatch)
 
             for key in minibatch.keys():
-                # For every episode in the minibatch, get up to batch_max_step experience
                 minibatch[key] = minibatch[key][:, :batch_max_step]
             # cut
 
@@ -182,7 +170,7 @@ class DRQNAgent(object):
 
             # calculateLossfrombatch function (take minibatch, return loss)
             u, r, terminal = minibatch['u'], minibatch['r'], minibatch['terminate']
-            # padded experience will have mask = 0, so laster their loss will be 0
+            # padded experience will have mask = 0, so later their loss will be 0
 
             # createMask function
             # np.array(0 if obs != 0, 1 otherwise)
@@ -192,11 +180,9 @@ class DRQNAgent(object):
 
             # q_preds is selected by action. only the actioned q_pred is modified in q_target. The non-actioned doesn't affect loss
             q_preds = (torch.gather(q_preds, dim=2, index=u)).squeeze(1)
-
             q_targets = (q_targets.max(dim=2)[0]).unsqueeze(2)
 
             targets = r + self.gamma * q_targets * (1 - terminal)
-
             td_error = (q_preds - targets.detach())
 
             masked_td_error = mask * td_error

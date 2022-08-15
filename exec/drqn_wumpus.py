@@ -1,7 +1,7 @@
 from env.wrapper_wumpus import WumpusEnv
 from collections import deque
 import matplotlib.pyplot as plt
-from src.drqn.drqn import RnnNet, ReplayBuffer, DRQNAgent
+from src.drqn.drqn import RnnNet, ReplayBufferRnn, DRQNAgent
 import random
 
 class Rollout(object):
@@ -27,7 +27,7 @@ class Rollout(object):
             if step <= 4:
                 action = random.randint(0, 3)
             else:
-                action = self.agent.choose_action(observation)
+                action = self.agent.act(observation)
 
             print("observation is : {}".format(observation[0]))
 
@@ -84,7 +84,7 @@ def main():
 
     buffer_size = 10000
     episode_maxstep = 200
-    replay_buffer = ReplayBuffer(buffer_size, episode_maxstep, observation_dim)
+    replay_buffer = ReplayBufferRnn(buffer_size, episode_maxstep, observation_dim)
 
     gamma = 0.9
     minibatch_size = 2
@@ -109,7 +109,7 @@ def main():
         episode, reward = rollout.generate_episode()
         scores.append(reward)
         moving_average.append(np.mean(scores))
-        drqn_agent.memory.addexperience(episode)
+        drqn_agent.memory.add(episode)
         drqn_agent.learn()
         current_episode += 1
 
