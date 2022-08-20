@@ -14,9 +14,9 @@ from env.wrapper_easywumpus import EasyWumpusEnv
 
 
 def setupExperiment(config):
-    env = EasyWumpusEnv(0.7)
-    actionDim = 4
-    observationDim = 1  # env.observation_space.shape[0]
+    env = EasyWumpusEnv(config["observationAccu"])
+    actionDim = config["actionDim"]
+    observationDim = config["observationDim"]
 
     encodingNetwork = VRNN_encoding(observationDim, config["hiddenDim"],
                                     config["observationEncodeDim"], actionDim, config["actionEncodeDim"])
@@ -30,11 +30,8 @@ def setupExperiment(config):
                                     config["observationEncodeDim"])
 
     particleGru = nn.GRU(config["hDim"] * 2 + 1, config["hDim"], batch_first=True)
-
     criticLinear = nn.Linear(config["hDim"], 1)
-
     actionDist = Categorical(config["hDim"], actionDim)
-
     actorCritic = DVRL(actionDim,
                        observationDim,
                        config["actionEncodeDim"],
@@ -76,7 +73,7 @@ def setupExperiment(config):
     return env, actorCritic, rolloutStorage, currentMemory
 
 
-def updateMemory(env, actorCritic, currentMemory, policyReturn, obs, reward, done, transitionState):
+def updateMemory(config, actorCritic, currentMemory, policyReturn, obs, reward, done, transitionState):
     # Make reward into tensor so we can use it as input to model
     reward = torch.from_numpy(np.expand_dims(np.stack(np.array([reward])), 1)).float()
     # If trajectory ended, create mask to clean reset actions and latent states
@@ -90,7 +87,7 @@ def updateMemory(env, actorCritic, currentMemory, policyReturn, obs, reward, don
     # Set first action to 0 for new episodes
     # Also, if action is discrete, convert it to one-hot vector
     currentMemory['oneHotActions'] = toOneHot(
-        4,
+        config["actionDim"],
         policyReturn.action * masks.type(policyReturn.action.type()))
     currentMemory['rewards'][:] = reward
     currentMemory['transitionState'] = transitionState
@@ -98,7 +95,7 @@ def updateMemory(env, actorCritic, currentMemory, policyReturn, obs, reward, don
     return currentMemory, masks, reward
 
 
-def runOneTimeStep(actorCritic, currentMemory, env, cumulativeReward):
+def runOneTimeStep(config, actorCritic, currentMemory, env, cumulativeReward):
     # use policy to get action and other stuff
     policyReturn = actorCritic(currentMemory)
     actions = policyReturn.action.detach().squeeze(1).numpy()[0]
@@ -115,7 +112,7 @@ def runOneTimeStep(actorCritic, currentMemory, env, cumulativeReward):
         nextObservation = [env.observation(nextState, 0)]
         print("episode reward: {}".format(cumulativeReward))
 
-    currentMemory, masks, reward = updateMemory(env, actorCritic, currentMemory, policyReturn, nextObservation, reward,
+    currentMemory, masks, reward = updateMemory(config, actorCritic, currentMemory, policyReturn, nextObservation, reward,
                                                 done, nextState)
 
     return policyReturn, currentMemory, masks, reward, cumulativeReward, done
@@ -134,15 +131,17 @@ def trackValues(trackedValues, policyReturn):
 
 
 def main():
-    config = {"envName": 'CartPole-v1',
-              "actionEncodeDim": 64,
+    config = {"actionEncodeDim": 64,
               "observationEncodeDim": 128,
               "hiddenDim": 64,
               "hDim": 256,
               "zDim": 256,
               "numParticles": 15,
               "numStepBeforeTrain": 5,
-              "totalTrainStep": 30000
+              "totalTrainStep": 30000,
+              "observationAccu": 0.7,
+              "actionDim": 4,
+              "observationDim": 1
               }
 
     env, actorCritic, rollouts, currentMemory = setupExperiment(config)
@@ -156,7 +155,7 @@ def main():
 
         for step in range(config["numStepBeforeTrain"]):
 
-            policyReturn, currentMemory, masks, reward, cumulativeReward, done = runOneTimeStep(actorCritic, \
+            policyReturn, currentMemory, masks, reward, cumulativeReward, done = runOneTimeStep(config, actorCritic, \
                                                                                                 currentMemory, env,
                                                                                                 cumulativeReward)
             # save reward for plotting
