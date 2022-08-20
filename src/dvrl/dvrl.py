@@ -54,7 +54,7 @@ class DVRL(nn.Module):
         self.hiddenDim = hiddenDim
         self.numParticles = numParticles
         self.batchSize = batchSize
-        # Input dimension is hDim + hDim + 1, output dim 就让他是hDim反正也没啥关系
+        # Input dimension is hDim + hDim + 1, ok to set output dim = hDim
         self.particleGru = particleGru
 
         self.encodingNetwork = encodingNetwork
@@ -63,8 +63,8 @@ class DVRL(nn.Module):
         self.transitionNetwork = transitionNetwork
         self.emissionNetwork = emissionNetwork
 
-        # 这两个是最后的output
-        # input是一样的，一个输出value,另一个输出action
+        # these two are the final output
+        # with the same input, one outputs value the other outputs action
         self.criticLinear = criticLinear
         self.dist = actionDist
 
@@ -95,7 +95,7 @@ class DVRL(nn.Module):
 
     def resampleParticles(self, previousLatentState):
         previousLogWeight = previousLatentState.logWeight
-        # compute u,选一部分particle代替所有的particle
+        # compute u, choose some particles to replace all particles
         ancestralIndices = sample_ancestral_index(previousLogWeight, sampleUniform)
         # resample based on u
         previousLatentState = previousLatentState.resample(ancestralIndices)
@@ -103,7 +103,8 @@ class DVRL(nn.Module):
         return previousLatentState
 
     def computeDistribution(self, previousLatentState, obsActEncode):
-        # 选用第一个time step的observation,action,encoded obs, encoded_Action,etc,虽然本来也只有一个timestep,还是保持和原code一致把
+        # choose the first timestep observation,action,encoded obs, encoded_Action,etc
+        # only one timestep but here to stay with original code
         currentObsActEncode = obsActEncode.index_elements(0)
 
         proposalDistribution = self.proposalNetwork(
@@ -120,13 +121,13 @@ class DVRL(nn.Module):
             obsActEncode=currentObsActEncode
         )
 
-        # Compute prior probability over z  这个用来算w的，配合emission和proposal一起算w
+        # Compute prior probability over z; to calculate w, work with emission and proposal to calculate w together
         priorDistribution = self.transitionNetwork(
             previousLatentState=previousLatentState,
             obsActEncode=currentObsActEncode
         )
 
-        # Compute probability over observation 这个是Decoder
+        # Compute probability over observation; this is the decoder
         observationDecodeDistribution = self.emissionNetwork(
             previousLatentState=previousLatentState,
             latentState=latentState,
@@ -163,7 +164,7 @@ class DVRL(nn.Module):
         obsActEncode = self.encodeObservationAction(observation, reward, action)
 
         # expand ObsActEncode to # of particles
-        # 后面particle计算每个particle都需要这些information, 所以要expand
+        # later in particles calculation, every particle needs the info -- so need to expand
         obsActEncode.unsqueeze_and_expand_all_(dim=2, size=self.numParticles)
 
         # resample particles

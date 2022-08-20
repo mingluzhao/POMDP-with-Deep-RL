@@ -82,7 +82,7 @@ def updateMemory(env, actorCritic, currentMemory, policyReturn, obs, reward, don
     # Update current_memory
     currentMemory['currentObs'] = torch.from_numpy(np.array([obs])).float()
     # Create new latent states for new episodes
-    # only create new latent state if 一个episode完了然后done是0
+    # only create new latent state if one episode is done
     currentMemory['states'] = policyReturn.latentState if not done else actorCritic.newLatentState()
     # Set first action to 0 for new episodes
     # Also, if action is discrete, convert it to one-hot vector

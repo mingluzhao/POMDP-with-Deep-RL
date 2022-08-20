@@ -129,9 +129,9 @@ class VRNN_emission(nn.Module):  # decoding
         """
         batch_size, num_particles, encoded_Z_dim = latentState.encoded_Z.size()
 
-        # 先把z,h,a变成observation_encode_dim的
-        # 再变成n_observation变回去
-        # 这需要两步，就和encode里也是先encode一次再变成z
+        # first change z, h, a to observation_encode_dim
+        # then change to n_observation
+        # needs two steps -- similar to encode function (first encode then turn to z)
         dec_t = self.linear_obs_decoder(torch.cat([
             latentState.encoded_Z,
             previousLatentState.h,
@@ -151,8 +151,9 @@ class VRNN_emission(nn.Module):  # decoding
 
 
 class VRNN_proposal(nn.Module):  # from encoded observation to z's distribution
-    # z_dim 是latent stat的dimension，原paper里是256
-    # h_dim 是h的dimension， 也是256
+    #
+    # z_dim: latent state dimension (=256 in original paper)
+    # h_dim: dimension of h, also 256
     def __init__(self, z_dim, h_dim, observation_encode_dim, action_encode_dim):
         super().__init__()
 
@@ -212,7 +213,7 @@ class VRNN_encoding(nn.Module):  # from sequence observation to lower-dimension 
         encoded_observation = self.observation_encoder(obsActEncode.observation.view(-1, self.n_observation)).view(1, 1, -1)
         encoded_action = self.action_encoder(obsActEncode.action.view(-1, self.n_actions)).view(1, 1, -1)
 
-        # output [1,1,encoded_obdim] [1,1,encoded_actdim]，原paper是1568ecnodedobdim，可以改我觉得
+        # output [1, 1, encoded_obdim] [1,1,encoded_actdim]，original paper = 1568 encoded_obs_dim (ok to change)
         obsActEncode.encoded_observation = encoded_observation
         obsActEncode.encoded_action = encoded_action
 
